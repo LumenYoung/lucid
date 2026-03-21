@@ -1,0 +1,70 @@
+# Put these in the compose project .env that owns the Caddy labels:
+# - LUCID_PUBLIC_HOSTNAME=memory.example.com
+# - LUCID_API_TOKEN=<generated-random-token>
+# - GRAPHITI_MCP_SERVER_PATH=/path/to/graphiti/mcp_server
+
+services:
+  lucid-falkordb:
+    image: falkordb/falkordb:latest
+    container_name: lucid-falkordb
+    restart: unless-stopped
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        export REDIS_ARGS="--requirepass $$FALKORDB_PASSWORD";
+        exec /var/lib/falkordb/bin/run.sh
+    networks:
+      - lucid-internal
+    env_file:
+      - ./env/lucid-falkordb.env
+    volumes:
+      - lucid_falkordb_data:/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "if [ -n \"$$FALKORDB_PASSWORD\" ]; then redis-cli -a \"$$FALKORDB_PASSWORD\" ping | grep -q PONG; else redis-cli ping | grep -q PONG; fi",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  lucid-graphiti:
+    image: lucid-graphiti:local
+    container_name: lucid-graphiti
+    restart: unless-stopped
+    build:
+      context: ${GRAPHITI_MCP_SERVER_PATH}
+      dockerfile: docker/Dockerfile.standalone
+    depends_on:
+      lucid-falkordb:
+        condition: service_healthy
+    networks:
+      - lucid-internal
+      - caddy
+    env_file:
+      - ./env/lucid-graphiti.env
+    volumes:
+      - ./graphiti/config-docker-falkordb.yaml:/app/mcp/config/config.yaml:ro
+    labels:
+      caddy: "${LUCID_PUBLIC_HOSTNAME}"
+      caddy.@token.header: "X-Lucid-Token ${LUCID_API_TOKEN}"
+      caddy.@has_token.header: "X-Lucid-Token *"
+      caddy.0_handle: "@token"
+      caddy.0_handle.0_reverse_proxy: "{{upstreams 8000}}"
+      caddy.0_handle.0_reverse_proxy.header_up: "Host localhost:8000"
+      caddy.1_handle: "@has_token"
+      caddy.1_handle.0_respond: "\"Invalid token\" 401"
+      caddy.2_handle: "*"
+      caddy.2_handle.0_respond: "\"Missing token\" 401"
+
+networks:
+  caddy:
+    external: true
+  lucid-internal:
+    internal: true
+
+volumes:
+  lucid_falkordb_data:

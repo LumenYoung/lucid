@@ -1,0 +1,56 @@
+server:
+  transport: "http"
+  host: "0.0.0.0"
+  port: 8000
+
+llm:
+  provider: ${GRAPHITI_LLM_PROVIDER:openai}
+  model: ${GRAPHITI_LLM_MODEL:gpt-4o-mini}
+  max_tokens: 4096
+  providers:
+    openai:
+      api_key: ${OPENAI_API_KEY}
+      api_url: ${OPENAI_API_URL:https://api.openai.com/v1}
+      organization_id: ${OPENAI_ORGANIZATION_ID:}
+
+embedder:
+  provider: ${GRAPHITI_EMBEDDER_PROVIDER:openai}
+  model: ${GRAPHITI_EMBEDDER_MODEL:text-embedding-3-small}
+  dimensions: 1536
+  providers:
+    openai:
+      api_key: ${OPENAI_API_KEY}
+      api_url: ${OPENAI_API_URL:https://api.openai.com/v1}
+      organization_id: ${OPENAI_ORGANIZATION_ID:}
+
+database:
+  provider: "falkordb"
+  providers:
+    falkordb:
+      uri: ${FALKORDB_URI:redis://lucid-falkordb:6379}
+      password: ${FALKORDB_PASSWORD:}
+      database: ${FALKORDB_DATABASE:default_db}
+
+graphiti:
+  group_id: ${GRAPHITI_GROUP_ID:main}
+  episode_id_prefix: ${EPISODE_ID_PREFIX:}
+  user_id: ${USER_ID:lucid_mcp}
+  entity_types:
+    - name: "Preference"
+      description: "User preferences, choices, opinions, or selections"
+    - name: "Requirement"
+      description: "Specific needs, features, or functionality that must be fulfilled"
+    - name: "Procedure"
+      description: "Standard operating procedures and sequential instructions"
+    - name: "Location"
+      description: "Physical or virtual places where activities occur"
+    - name: "Event"
+      description: "Time-bound activities, occurrences, or experiences"
+    - name: "Organization"
+      description: "Companies, institutions, groups, or formal entities"
+    - name: "Document"
+      description: "Information content in various forms"
+    - name: "Topic"
+      description: "Subject of conversation, interest, or knowledge domain"
+    - name: "Object"
+      description: "Physical items, tools, devices, or possessions"

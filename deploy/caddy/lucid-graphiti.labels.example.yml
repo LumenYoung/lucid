@@ -1,0 +1,15 @@
+labels:
+  caddy: "${LUCID_PUBLIC_HOSTNAME}"
+  caddy.@token.header: "X-Lucid-Token ${LUCID_API_TOKEN}"
+  caddy.@has_token.header: "X-Lucid-Token *"
+  caddy.0_handle: "@token"
+  caddy.0_handle.0_reverse_proxy: "{{upstreams 8000}}"
+  caddy.0_handle.0_reverse_proxy.header_up: "Host localhost:8000"
+  caddy.1_handle: "@has_token"
+  caddy.1_handle.0_respond: "\"Invalid token\" 401"
+  caddy.2_handle: "*"
+  caddy.2_handle.0_respond: "\"Missing token\" 401"
+
+# Important:
+# - Put LUCID_PUBLIC_HOSTNAME and LUCID_API_TOKEN in the compose project .env.
+# - Do not rely on env_file values for compose label interpolation.
