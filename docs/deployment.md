@@ -26,6 +26,7 @@ The public surface is Graphiti's MCP HTTP endpoint at `/mcp`. Raw FalkorDB is no
 - `deploy/env/lucid-falkordb.env.example`
 - `deploy/env/lucid-graphiti.env.example`
 - `deploy/graphiti/config-docker-falkordb.yaml`
+- `deploy/maintenance/README.md`
 
 ## Required configuration
 
@@ -100,3 +101,14 @@ mcp2cli --mcp "https://${LUCID_PUBLIC_HOSTNAME}/mcp" \
 ```
 
 If you want the agent-friendly flow instead of raw `mcp2cli`, use the skill under `skills/lucid-memory/`.
+
+## Maintenance
+
+The server-side maintenance utilities live under `deploy/maintenance/`.
+
+- Use `reembed_group.py` when only the embedding model changed and you want to refresh vectors in place.
+- Use `replay_group.py` when you want to export episodes and rebuild a group by replaying them through Graphiti.
+
+Both scripts are operator-side tools. They are intentionally separate from `skills/`, and they expect the same Graphiti config, env file, and upstream `graphiti/mcp_server` checkout that the deployed runtime uses.
+
+If you run them from the host shell and your Graphiti env file points FalkorDB at a compose-only DNS name, export a host-routable `FALKORDB_URI` first. The maintenance bootstrap respects shell overrides over the env file for this reason.
