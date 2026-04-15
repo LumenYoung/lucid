@@ -13,4 +13,6 @@ The repo is intentionally split into two separate surfaces:
 Start here:
 
 - Server deployment: `docs/deployment.md`
+- Agent setup: `docs/agents/README.md`
+- Shared agent instruction: `docs/agents/shared-instruction.md`
 - Agent skill: `skills/lucid-memory/SKILL.md`
