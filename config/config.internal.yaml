@@ -1,0 +1,69 @@
+server:
+  transport: "http"
+  host: "0.0.0.0"
+  port: 8000
+
+llm:
+  provider: ${GRAPHITI_LLM_PROVIDER:openai}
+  model: ${GRAPHITI_LLM_MODEL:gpt-4o-mini}
+  max_tokens: 4096
+  providers:
+    openai:
+      api_key: ${OPENAI_API_KEY}
+      api_url: ${OPENAI_API_URL:https://api.openai.com/v1}
+      organization_id: ${OPENAI_ORGANIZATION_ID:}
+
+embedder:
+  provider: ${GRAPHITI_EMBEDDER_PROVIDER:openai}
+  model: ${GRAPHITI_EMBEDDER_MODEL:text-embedding-3-small}
+  dimensions: 1536
+  providers:
+    openai:
+      api_key: ${OPENAI_API_KEY}
+      api_url: ${OPENAI_API_URL:https://api.openai.com/v1}
+      organization_id: ${OPENAI_ORGANIZATION_ID:}
+
+database:
+  provider: "falkordb"
+  providers:
+    falkordb:
+      uri: ${FALKORDB_URI:redis://lucid-falkordb:6379}
+      password: ${FALKORDB_PASSWORD:}
+      database: ${FALKORDB_DATABASE:default_db}
+
+lucid:
+  profile_name: ${LUCID_PROFILE_NAME:internal}
+  default_write_group: ${LUCID_DEFAULT_WRITE_GROUP:personal}
+  default_read_groups:
+    - ${LUCID_DEFAULT_READ_GROUP_1:personal}
+  allowed_write_groups:
+    - ${LUCID_ALLOWED_WRITE_GROUP_1:personal}
+  allowed_read_groups:
+    - ${LUCID_ALLOWED_READ_GROUP_1:personal}
+    - ${LUCID_ALLOWED_READ_GROUP_2:work}
+  rewrite_disallowed_write_group_to_default: ${LUCID_REWRITE_WRITE_GROUP:true}
+  fallback_to_default_read_groups: ${LUCID_FALLBACK_READ_GROUPS:true}
+
+graphiti:
+  group_id: ${GRAPHITI_GROUP_ID:personal}
+  episode_id_prefix: ${EPISODE_ID_PREFIX:}
+  user_id: ${USER_ID:lucid_mcp}
+  entity_types:
+    - name: "Preference"
+      description: "User preferences, choices, opinions, or selections"
+    - name: "Requirement"
+      description: "Specific needs, features, or functionality that must be fulfilled"
+    - name: "Procedure"
+      description: "Standard operating procedures and sequential instructions"
+    - name: "Location"
+      description: "Physical or virtual places where activities occur"
+    - name: "Event"
+      description: "Time-bound activities, occurrences, or experiences"
+    - name: "Organization"
+      description: "Companies, institutions, groups, or formal entities"
+    - name: "Document"
+      description: "Information content in various forms"
+    - name: "Topic"
+      description: "Subject of conversation, interest, or knowledge domain"
+    - name: "Object"
+      description: "Physical items, tools, devices, or possessions"
