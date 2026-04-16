@@ -8,24 +8,23 @@ The setup has three layers:
 2. MCP connection: expose the Lucid MCP endpoint with `LUCID_API_TOKEN`.
 3. Agent-specific automation: OpenCode can add hooks through a plugin; Codex currently cannot.
 
-## Shared environment contract
+## Shared Environment Contract
 
 Set these in the shell or agent service environment:
 
 ```bash
 export LUCID_API_TOKEN=...
-export LUCID_MCP_URL=https://memory.example.com/mcp
-export LUCID_MEMORY_WRITE_GROUP=work
-export LUCID_MEMORY_READ_GROUPS=work
+export LUCID_MCP_URL=https://memory.example.com/internal/mcp
 ```
 
 Notes:
 
-- `LUCID_MEMORY_WRITE_GROUP` defaults to `work` in our setup.
-- `LUCID_MEMORY_READ_GROUPS` can be a comma-separated list such as `work,research`.
-- If you do not need read/write separation yet, keep both set to `work`.
+- The service-side Lucid profile should own the default write group.
+- Clients should usually omit `group_id`.
+- For a machine that should default to personal/internal memory while still being allowed to read work, point it at the internal endpoint.
+- For shared or public agent traffic, point it at the work endpoint.
 
-## Shared instruction
+## Shared Instruction
 
 Use the text in [shared-instruction.md](shared-instruction.md) as the common Lucid memory policy for both agents.
 
@@ -73,17 +72,18 @@ Operationally:
 - Codex should retrieve narrowly, usually by repo or task terms.
 - Codex should write only durable, high-value summaries another session would need.
 - Codex should write a checkpoint before compaction and a final handoff at the end of meaningful work.
+- Codex should not send explicit episode UUIDs in normal writes.
 
 ## OpenCode
 
-OpenCode should use the same shared instruction, the same Lucid MCP server, and an additional plugin for automatic hooks.
+OpenCode should use the same shared instruction, the same Lucid MCP server, and an additional hook/plugin layer for automatic retrieval and write moments.
 
 Recommended setup:
 
 1. Put the shared instruction in OpenCode's global `AGENTS.md`.
 2. Add a remote `lucid-memory` MCP server in `opencode.json`.
 3. Load a Lucid plugin through the OpenCode `plugin` array.
-4. Export `LUCID_API_TOKEN` and the optional Lucid group variables in the OpenCode environment.
+4. Export `LUCID_API_TOKEN` and any optional Lucid group override variables in the OpenCode environment.
 
 Example MCP block:
 
@@ -115,12 +115,23 @@ The plugin should automate the hook layer, especially:
 
 The shared instruction still matters in OpenCode. It tells the model what good memory looks like, even when some retrieval and write moments are already automated by hooks.
 
-## Recommended policy boundary
+## Recommended Endpoint Policy
+
+Keep endpoint and profile ownership simple:
+
+- `/work/mcp` should default-write to `work`
+- `/internal/mcp` should default-write to `personal`
+- `/internal/mcp` may additionally allow reads from `work`
+- `/mcp` may remain a compatibility alias to the work profile
+
+That keeps routing concerns at the entry-point level, while the actual read/write group policy remains inside the Lucid runtime.
+
+## Recommended Policy Boundary
 
 Keep the policy simple:
 
-- default write group: `work`
+- default write group: service-side, profile-owned
 - optional read groups: one or more groups, if you need broader retrieval
-- separate `personal` only when you truly need privacy or a different retention posture
+- separate `personal` only when you truly need privacy or a different operational boundary
 
-For most engineering work, `work` as the default write target and optional multi-group reads is the cleanest starting point.
+For most engineering work, a service-side default of `work` plus optional multi-group reads is the cleanest starting point.

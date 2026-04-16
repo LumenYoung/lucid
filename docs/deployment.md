@@ -4,8 +4,8 @@
 
 This repo has two audiences and keeps them separate:
 
-- `deploy/` contains operator-facing reference artifacts for Graphiti, FalkorDB, and Caddy.
-- `skills/` contains agent-facing skill assets that consume the public MCP endpoint.
+- `deploy/` contains operator-facing deployment artifacts and maintenance scripts.
+- `docs/` contains the human-facing deployment, maintenance, and integration guidance.
 
 The files here are sanitized examples. They are meant to be copied or merged into your actual compose environment.
 
@@ -26,7 +26,7 @@ The public surface is Graphiti's MCP HTTP endpoint at `/mcp`. Raw FalkorDB is no
 - `deploy/env/lucid-falkordb.env.example`
 - `deploy/env/lucid-graphiti.env.example`
 - `deploy/graphiti/config-docker-falkordb.yaml`
-- `deploy/maintenance/README.md`
+- `docs/maintenance.md`
 
 ## Required configuration
 
@@ -54,6 +54,7 @@ Put these values in `deploy/env/lucid-falkordb.env` and `deploy/env/lucid-graphi
 - The raw `falkordb/falkordb` image does not enforce `FALKORDB_PASSWORD` by itself. The compose example exports `REDIS_ARGS="--requirepass ..."` in the container entrypoint, which is required if you want password auth.
 - When Caddy proxies Graphiti's streamable MCP endpoint, it must send `Host localhost:8000` upstream. Without that header override, Graphiti returns `421 Invalid Host header`.
 - Use `https://${LUCID_PUBLIC_HOSTNAME}/mcp` for MCP clients. The endpoint works without a trailing slash.
+- If you expose multiple Lucid profiles, keep the public compatibility route on `/mcp` and place profile-specific entry points on explicit subpaths such as `/work/mcp` and `/internal/mcp`.
 
 ## Deployment steps
 
@@ -100,15 +101,11 @@ mcp2cli --mcp "https://${LUCID_PUBLIC_HOSTNAME}/mcp" \
   get-status
 ```
 
-If you want the agent-friendly flow instead of raw `mcp2cli`, use the skill under `skills/lucid-memory/`.
+For agent integration policy, setup, and instruction guidance, use:
+
+- `docs/agents/README.md`
+- `docs/agents/shared-instruction.md`
 
 ## Maintenance
 
-The server-side maintenance utilities live under `deploy/maintenance/`.
-
-- Use `reembed_group.py` when only the embedding model changed and you want to refresh vectors in place.
-- Use `replay_group.py` when you want to export episodes and rebuild a group by replaying them through Graphiti.
-
-Both scripts are operator-side tools. They are intentionally separate from `skills/`, and they expect the same Graphiti config, env file, and upstream `graphiti/mcp_server` checkout that the deployed runtime uses.
-
-If you run them from the host shell and your Graphiti env file points FalkorDB at a compose-only DNS name, export a host-routable `FALKORDB_URI` first. The maintenance bootstrap respects shell overrides over the env file for this reason.
+See `docs/maintenance.md`.
