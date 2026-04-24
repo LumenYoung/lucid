@@ -47,3 +47,27 @@ def test_read_groups_fall_back_when_request_is_fully_disallowed():
     )
 
     assert resolve_read_groups(['research'], policy) == ['personal']
+
+
+def test_write_group_allows_explicit_group_in_direct_mode():
+    policy = LucidPolicyConfig(
+        default_write_group='work',
+        allowed_write_groups=['work'],
+    )
+
+    assert (
+        resolve_write_group('research', policy, enforce_group_policy=False) == 'research'
+    )
+
+
+def test_read_groups_preserve_requested_groups_in_direct_mode():
+    policy = LucidPolicyConfig(
+        default_read_groups=['work'],
+        allowed_read_groups=['work'],
+    )
+
+    assert resolve_read_groups(
+        ['personal', 'research'],
+        policy,
+        enforce_group_policy=False,
+    ) == ['personal', 'research']

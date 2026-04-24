@@ -181,8 +181,78 @@ class LucidPolicyConfig(BaseModel):
     default_read_groups: list[str] = Field(default_factory=lambda: ['work'])
     allowed_write_groups: list[str] = Field(default_factory=lambda: ['work'])
     allowed_read_groups: list[str] = Field(default_factory=lambda: ['work'])
+    instruction_group: str | None = None
     rewrite_disallowed_write_group_to_default: bool = True
     fallback_to_default_read_groups: bool = True
+
+
+class LucidToolDescriptionsConfig(BaseModel):
+    add_memory: str | None = None
+    search_nodes: str | None = None
+    search_memory_facts: str | None = None
+    delete_entity_edge: str | None = None
+    delete_episode: str | None = None
+    get_entity_edge: str | None = None
+    get_episodes: str | None = None
+    clear_graph: str | None = None
+    get_status: str | None = None
+
+    def merge(self, parent: 'LucidToolDescriptionsConfig | None' = None) -> 'LucidToolDescriptionsConfig':
+        merged = parent.model_copy(deep=True) if parent is not None else LucidToolDescriptionsConfig()
+        for field_name in type(self).model_fields:
+            value = getattr(self, field_name)
+            if value is not None:
+                setattr(merged, field_name, value)
+        return merged
+
+    def as_mapping(self) -> dict[str, str]:
+        return {
+            field_name: getattr(self, field_name) or ''
+            for field_name in type(self).model_fields
+        }
+
+
+class LucidInstructionGroupConfig(BaseModel):
+    inherits: str | None = None
+    high_level_policy: str | None = None
+    direct_policy: str | None = None
+    routed_policy: str | None = None
+    tool_descriptions: LucidToolDescriptionsConfig = Field(default_factory=LucidToolDescriptionsConfig)
+
+    def merge(
+        self,
+        parent: 'LucidInstructionGroupConfig | None' = None,
+    ) -> 'LucidInstructionGroupConfig':
+        merged = (
+            parent.model_copy(deep=True) if parent is not None else LucidInstructionGroupConfig()
+        )
+        merged.inherits = None
+        if self.high_level_policy is not None:
+            merged.high_level_policy = self.high_level_policy
+        if self.direct_policy is not None:
+            merged.direct_policy = self.direct_policy
+        if self.routed_policy is not None:
+            merged.routed_policy = self.routed_policy
+        merged.tool_descriptions = self.tool_descriptions.merge(merged.tool_descriptions)
+        return merged
+
+
+class LucidInstructionsConfig(BaseModel):
+    default_group: str = 'default'
+    groups: dict[str, LucidInstructionGroupConfig] = Field(default_factory=dict)
+
+
+class LucidRouteConfig(BaseModel):
+    path_prefix: str
+    profile: str
+
+
+class LucidRoutingConfig(BaseModel):
+    enabled: bool = False
+    default_profile: str = 'work'
+    compatibility_path: str = '/mcp'
+    compatibility_profile: str | None = None
+    routes: list[LucidRouteConfig] = Field(default_factory=list)
 
 
 class LucidConfig(BaseSettings):
@@ -192,6 +262,9 @@ class LucidConfig(BaseSettings):
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
     graphiti: GraphitiAppConfig = Field(default_factory=GraphitiAppConfig)
     lucid: LucidPolicyConfig = Field(default_factory=LucidPolicyConfig)
+    profiles: dict[str, LucidPolicyConfig] = Field(default_factory=dict)
+    instructions: LucidInstructionsConfig = Field(default_factory=LucidInstructionsConfig)
+    routing: LucidRoutingConfig = Field(default_factory=LucidRoutingConfig)
     destroy_graph: bool = Field(default=False)
 
     model_config = SettingsConfigDict(
@@ -213,6 +286,78 @@ class LucidConfig(BaseSettings):
         config_path = Path(os.environ.get('CONFIG_PATH', 'config/config.yaml'))
         yaml_settings = YamlSettingsSource(settings_cls, config_path)
         return (init_settings, env_settings, yaml_settings, dotenv_settings)
+
+    @classmethod
+    def load_from_path(cls, config_path: Path) -> 'LucidConfig':
+        previous_config_path = os.environ.get('CONFIG_PATH')
+        os.environ['CONFIG_PATH'] = str(config_path)
+        try:
+            config = cls()
+            config._apply_runtime_defaults()
+            return config
+        finally:
+            if previous_config_path is None:
+                os.environ.pop('CONFIG_PATH', None)
+            else:
+                os.environ['CONFIG_PATH'] = previous_config_path
+
+    def _apply_runtime_defaults(self) -> None:
+        if not self.profiles:
+            profile_name = self.lucid.profile_name or self.routing.default_profile or 'work'
+            self.profiles = {profile_name: self.lucid.model_copy(deep=True)}
+
+        normalized_profiles: dict[str, LucidPolicyConfig] = {}
+        for profile_name, policy in self.profiles.items():
+            normalized_policy = policy.model_copy(deep=True)
+            normalized_policy.profile_name = profile_name
+            if normalized_policy.instruction_group is None:
+                normalized_policy.instruction_group = normalized_policy.default_write_group
+            normalized_profiles[profile_name] = normalized_policy
+        self.profiles = normalized_profiles
+
+        if not self.routing.default_profile:
+            self.routing.default_profile = next(iter(self.profiles.keys()))
+        if self.routing.compatibility_profile is None:
+            self.routing.compatibility_profile = self.routing.default_profile
+
+        if self.lucid.profile_name in self.profiles:
+            self.lucid = self.profiles[self.lucid.profile_name].model_copy(deep=True)
+        else:
+            self.lucid = self.profiles[self.routing.default_profile].model_copy(deep=True)
+
+    def resolve_profile(self, profile_name: str) -> 'LucidConfig':
+        if profile_name not in self.profiles:
+            raise ValueError(f'Unknown Lucid profile: {profile_name}')
+
+        resolved = self.model_copy(deep=True)
+        resolved.lucid = self.profiles[profile_name].model_copy(deep=True)
+        return resolved
+
+    def resolve_instruction_group(self, group_name: str | None = None) -> LucidInstructionGroupConfig:
+        if not self.instructions.groups:
+            return LucidInstructionGroupConfig()
+
+        target_name = group_name or self.instructions.default_group
+        if target_name not in self.instructions.groups:
+            target_name = self.instructions.default_group
+        if target_name not in self.instructions.groups:
+            raise ValueError(f'Unknown Lucid instruction group: {group_name}')
+
+        visited: set[str] = set()
+
+        def _resolve(name: str) -> LucidInstructionGroupConfig:
+            if name in visited:
+                raise ValueError(f'Circular Lucid instruction inheritance detected at group: {name}')
+            if name not in self.instructions.groups:
+                raise ValueError(f'Unknown Lucid instruction group: {name}')
+
+            visited.add(name)
+            current = self.instructions.groups[name]
+            parent = _resolve(current.inherits) if current.inherits else None
+            visited.remove(name)
+            return current.merge(parent)
+
+        return _resolve(target_name)
 
     def apply_cli_overrides(self, args) -> None:
         if hasattr(args, 'transport') and args.transport:
@@ -236,5 +381,7 @@ class LucidConfig(BaseSettings):
         if hasattr(args, 'group_id') and args.group_id:
             self.graphiti.group_id = args.group_id
             self.lucid.default_write_group = args.group_id
+            if self.lucid.instruction_group is None:
+                self.lucid.instruction_group = args.group_id
         if hasattr(args, 'user_id') and args.user_id:
             self.graphiti.user_id = args.user_id

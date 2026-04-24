@@ -40,9 +40,9 @@ Without that upstream host override, FastMCP returns:
 
 - `421 Invalid Host header`
 
-This applies to both the profile-specific endpoints and the legacy compatibility endpoint.
+This applies to all routed Lucid endpoints, including `/mcp`, `/work/mcp`, and `/internal/mcp`.
 
-## Legacy `/mcp` Routing
+## Route-Based Profile Selection
 
 Lucid currently supports:
 
@@ -50,9 +50,12 @@ Lucid currently supports:
 - `/internal/mcp`
 - `/mcp` as a compatibility alias to the work profile
 
-When using `caddy-docker-proxy`, matcher ordering matters. The legacy `/mcp` and `/health` routes
-must be emitted as explicit `handle` blocks, or a catch-all `respond 404` can swallow them before
-the reverse proxy runs.
+Lucid can now expose all three endpoints from a single HTTP service. Caddy only needs to handle
+authentication and reverse proxying. The route table, profiles, and subgroup instruction groups live in
+`config/config.yaml`.
+
+When route-based profile selection is disabled, Lucid falls back to direct `/mcp` behavior and
+lets clients provide explicit `group_id` values.
 
 ## `add_memory` And Explicit UUIDs
 

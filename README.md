@@ -18,12 +18,15 @@ on `graphiti-core` as a library.
 Lucid exposes a Graphiti-compatible MCP tool surface and adds Lucid-specific policy controls:
 
 - server-level MCP instruction
+- subgroup-level instruction groups declared in `instructions.groups`
 - profile-based default write groups
 - profile-based allowed read groups
+- profile-to-subgroup instruction mapping via `profiles.<name>.instruction_group`
 - disallowed write-group fallback to the profile default
+- optional route-based profile selection from one HTTP service
 - FalkorDB logical-group handling that keeps all groups inside one configured database
 
-The current deployment model uses separate MCP entry points backed by the same FalkorDB instance:
+The current deployment model uses one HTTP service with internal route-based profile selection:
 
 - `/work/mcp`
 - `/internal/mcp`

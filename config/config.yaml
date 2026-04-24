@@ -31,18 +31,6 @@ database:
       password: ${FALKORDB_PASSWORD:}
       database: ${FALKORDB_DATABASE:default_db}
 
-lucid:
-  profile_name: ${LUCID_PROFILE_NAME:work}
-  default_write_group: ${LUCID_DEFAULT_WRITE_GROUP:work}
-  default_read_groups:
-    - ${LUCID_DEFAULT_READ_GROUP_1:work}
-  allowed_write_groups:
-    - ${LUCID_ALLOWED_WRITE_GROUP_1:work}
-  allowed_read_groups:
-    - ${LUCID_ALLOWED_READ_GROUP_1:work}
-  rewrite_disallowed_write_group_to_default: ${LUCID_REWRITE_WRITE_GROUP:true}
-  fallback_to_default_read_groups: ${LUCID_FALLBACK_READ_GROUPS:true}
-
 graphiti:
   group_id: ${GRAPHITI_GROUP_ID:work}
   episode_id_prefix: ${EPISODE_ID_PREFIX:}
@@ -66,3 +54,352 @@ graphiti:
       description: "Subject of conversation, interest, or knowledge domain"
     - name: "Object"
       description: "Physical items, tools, devices, or possessions"
+
+profiles:
+  work:
+    default_write_group: ${LUCID_WORK_DEFAULT_WRITE_GROUP:work}
+    default_read_groups:
+      - ${LUCID_WORK_DEFAULT_READ_GROUP_1:work}
+    allowed_write_groups:
+      - ${LUCID_WORK_ALLOWED_WRITE_GROUP_1:work}
+    allowed_read_groups:
+      - ${LUCID_WORK_ALLOWED_READ_GROUP_1:work}
+    instruction_group: "work"
+    rewrite_disallowed_write_group_to_default: ${LUCID_WORK_REWRITE_WRITE_GROUP:true}
+    fallback_to_default_read_groups: ${LUCID_WORK_FALLBACK_READ_GROUPS:true}
+  internal:
+    default_write_group: ${LUCID_INTERNAL_DEFAULT_WRITE_GROUP:personal}
+    default_read_groups:
+      - ${LUCID_INTERNAL_DEFAULT_READ_GROUP_1:personal}
+    allowed_write_groups:
+      - ${LUCID_INTERNAL_ALLOWED_WRITE_GROUP_1:personal}
+    allowed_read_groups:
+      - ${LUCID_INTERNAL_ALLOWED_READ_GROUP_1:personal}
+      - ${LUCID_INTERNAL_ALLOWED_READ_GROUP_2:work}
+    instruction_group: "personal"
+    rewrite_disallowed_write_group_to_default: ${LUCID_INTERNAL_REWRITE_WRITE_GROUP:true}
+    fallback_to_default_read_groups: ${LUCID_INTERNAL_FALLBACK_READ_GROUPS:true}
+
+instructions:
+  default_group: "default"
+  groups:
+    default:
+      high_level_policy: |
+        Graphiti is a memory service for AI agents built on a knowledge graph. Graphiti performs well
+        with dynamic data such as user interactions, changing enterprise data, and external information.
+
+        Graphiti transforms information into a richly connected knowledge network, allowing you to
+        capture relationships between concepts, entities, and information. The system organizes data as episodes
+        (content snippets), nodes (entities), and facts (relationships between entities), creating a dynamic,
+        queryable memory store that evolves with new information. Graphiti supports multiple data formats, including
+        structured JSON data, enabling seamless integration with existing data pipelines and systems.
+
+        Facts contain temporal metadata, allowing you to track the time of creation and whether a fact is invalid
+        (superseded by new information).
+      direct_policy: |
+        Key capabilities:
+        1. Add episodes (text, messages, or JSON) to the knowledge graph with the add_memory tool
+        2. Search for nodes (entities) in the graph using natural language queries with search_nodes
+        3. Find relevant facts (relationships between entities) with search_memory_facts
+        4. Retrieve specific entity edges or episodes by UUID
+        5. Manage the knowledge graph with tools like delete_episode, delete_entity_edge, and clear_graph
+
+        The server connects to a database for persistent storage and uses language models for certain operations.
+        Each piece of information is organized by group_id, allowing you to maintain separate knowledge domains.
+
+        When adding information, provide descriptive names and detailed content to improve search quality.
+        When searching, use specific queries and consider filtering by group_id for more relevant results.
+
+        For optimal performance, ensure the database is properly configured and accessible, and valid
+        API keys are provided for any language model operations.
+      routed_policy: |
+        Key capabilities:
+        1. Add episodes (text, messages, or JSON) to the knowledge graph with the add_memory tool
+        2. Search for nodes (entities) in the graph using natural language queries with search_nodes
+        3. Find relevant facts (relationships between entities) with search_memory_facts
+        4. Retrieve specific entity edges or episodes by UUID
+        5. Manage the knowledge graph with tools like delete_episode, delete_entity_edge, and clear_graph
+
+        The server connects to a database for persistent storage and uses language models for certain operations.
+        This routed endpoint already applies its own write and read policy.
+
+        When adding information, provide descriptive names and detailed content to improve search quality.
+        When searching, use specific queries for more relevant results.
+
+        For optimal performance, ensure the database is properly configured and accessible, and valid
+        API keys are provided for any language model operations.
+      tool_descriptions:
+        add_memory: |
+          Add an episode to memory. This is the primary way to add information to the graph.
+
+          This function returns immediately and processes the episode addition in the background.
+          Episodes for the same group are processed sequentially to avoid race conditions.
+
+          Arguments:
+          - name: name of the episode
+          - episode_body: the content of the episode to persist to memory; when source='json', this must be a properly escaped JSON string
+          - group_id: optional write-group override; for normal shared-agent usage, prefer omitting this unless you intentionally need a separate hard partition
+          - source: one of text, json, or message
+          - source_description: optional source description
+          - uuid: optional episode UUID
+        search_nodes: |
+          Search for nodes in the graph memory.
+
+          Arguments:
+          - query: the natural-language search query
+          - group_ids: optional list of group IDs to filter results
+          - max_nodes: maximum number of nodes to return
+          - entity_types: optional list of entity type names to filter by
+        search_memory_facts: |
+          Search the graph memory for relevant facts.
+
+          Arguments:
+          - query: the natural-language search query
+          - group_ids: optional list of group IDs to filter results
+          - max_facts: maximum number of facts to return
+          - center_node_uuid: optional UUID of a node to center the search around
+        delete_entity_edge: |
+          Delete an entity edge from the graph memory.
+
+          Arguments:
+          - uuid: UUID of the entity edge to delete
+        delete_episode: |
+          Delete an episode from the graph memory.
+
+          Arguments:
+          - uuid: UUID of the episode to delete
+        get_entity_edge: |
+          Get an entity edge from the graph memory by UUID.
+
+          Arguments:
+          - uuid: UUID of the entity edge to retrieve
+        get_episodes: |
+          Get episodes from the graph memory.
+
+          Arguments:
+          - group_ids: optional list of group IDs to filter results
+          - max_episodes: maximum number of episodes to return
+        clear_graph: |
+          Clear all data from the graph for the specified groups.
+
+          Arguments:
+          - group_ids: optional list of group IDs to clear; in direct mode, if omitted, the default group is used
+        get_status: |
+          Get the status of the Lucid MCP server and database connection.
+    work:
+      high_level_policy: |
+        Graphiti is a memory service for AI agents built on a knowledge graph. Graphiti performs well
+        with dynamic data such as user interactions, changing enterprise data, and external information.
+
+        Graphiti transforms information into a richly connected knowledge network, allowing you to
+        capture relationships between concepts, entities, and information. The system organizes data as episodes
+        (content snippets), nodes (entities), and facts (relationships between entities), creating a dynamic,
+        queryable memory store that evolves with new information. Graphiti supports multiple data formats, including
+        structured JSON data, enabling seamless integration with existing data pipelines and systems.
+
+        Facts contain temporal metadata, allowing you to track the time of creation and whether a fact is invalid
+        (superseded by new information).
+      direct_policy: |
+        Key capabilities:
+        1. Add episodes (text, messages, or JSON) to the knowledge graph with the add_memory tool
+        2. Search for nodes (entities) in the graph using natural language queries with search_nodes
+        3. Find relevant facts (relationships between entities) with search_memory_facts
+        4. Retrieve specific entity edges or episodes by UUID
+        5. Manage the knowledge graph with tools like delete_episode, delete_entity_edge, and clear_graph
+
+        The server connects to a database for persistent storage and uses language models for certain operations.
+        Each piece of information is organized by group_id, allowing you to maintain separate knowledge domains.
+
+        When adding information, provide descriptive names and detailed content to improve search quality.
+        When searching, use specific queries and consider filtering by group_id for more relevant results.
+
+        For optimal performance, ensure the database is properly configured and accessible, and valid
+        API keys are provided for any language model operations.
+      routed_policy: |
+        Key capabilities:
+        1. Add episodes (text, messages, or JSON) to the knowledge graph with the add_memory tool
+        2. Search for nodes (entities) in the graph using natural language queries with search_nodes
+        3. Find relevant facts (relationships between entities) with search_memory_facts
+        4. Retrieve specific entity edges or episodes by UUID
+        5. Manage the knowledge graph with tools like delete_episode, delete_entity_edge, and clear_graph
+
+        The server connects to a database for persistent storage and uses language models for certain operations.
+        This routed endpoint already applies its own write and read policy.
+
+        When adding information, provide descriptive names and detailed content to improve search quality.
+        When searching, use specific queries for more relevant results.
+
+        For optimal performance, ensure the database is properly configured and accessible, and valid
+        API keys are provided for any language model operations.
+      tool_descriptions:
+        add_memory: |
+          Add an episode to memory. This is the primary way to add information to the graph.
+
+          This function returns immediately and processes the episode addition in the background.
+          Episodes for the same group are processed sequentially to avoid race conditions.
+
+          Arguments:
+          - name: name of the episode
+          - episode_body: the content of the episode to persist to memory; when source='json', this must be a properly escaped JSON string
+          - group_id: optional write-group override; for normal shared-agent usage, prefer omitting this unless you intentionally need a separate hard partition
+          - source: one of text, json, or message
+          - source_description: optional source description
+          - uuid: optional episode UUID
+        search_nodes: |
+          Search for nodes in the graph memory.
+
+          Arguments:
+          - query: the natural-language search query
+          - group_ids: optional list of group IDs to filter results
+          - max_nodes: maximum number of nodes to return
+          - entity_types: optional list of entity type names to filter by
+        search_memory_facts: |
+          Search the graph memory for relevant facts.
+
+          Arguments:
+          - query: the natural-language search query
+          - group_ids: optional list of group IDs to filter results
+          - max_facts: maximum number of facts to return
+          - center_node_uuid: optional UUID of a node to center the search around
+        delete_entity_edge: |
+          Delete an entity edge from the graph memory.
+
+          Arguments:
+          - uuid: UUID of the entity edge to delete
+        delete_episode: |
+          Delete an episode from the graph memory.
+
+          Arguments:
+          - uuid: UUID of the episode to delete
+        get_entity_edge: |
+          Get an entity edge from the graph memory by UUID.
+
+          Arguments:
+          - uuid: UUID of the entity edge to retrieve
+        get_episodes: |
+          Get episodes from the graph memory.
+
+          Arguments:
+          - group_ids: optional list of group IDs to filter results
+          - max_episodes: maximum number of episodes to return
+        clear_graph: |
+          Clear all data from the graph for the specified groups.
+
+          Arguments:
+          - group_ids: optional list of group IDs to clear; in direct mode, if omitted, the default group is used
+        get_status: |
+          Get the status of the Lucid MCP server and database connection.
+    personal:
+      high_level_policy: |
+        Graphiti is a memory service for AI agents built on a knowledge graph. Graphiti performs well
+        with dynamic data such as user interactions, changing enterprise data, and external information.
+
+        Graphiti transforms information into a richly connected knowledge network, allowing you to
+        capture relationships between concepts, entities, and information. The system organizes data as episodes
+        (content snippets), nodes (entities), and facts (relationships between entities), creating a dynamic,
+        queryable memory store that evolves with new information. Graphiti supports multiple data formats, including
+        structured JSON data, enabling seamless integration with existing data pipelines and systems.
+
+        Facts contain temporal metadata, allowing you to track the time of creation and whether a fact is invalid
+        (superseded by new information).
+      direct_policy: |
+        Key capabilities:
+        1. Add episodes (text, messages, or JSON) to the knowledge graph with the add_memory tool
+        2. Search for nodes (entities) in the graph using natural language queries with search_nodes
+        3. Find relevant facts (relationships between entities) with search_memory_facts
+        4. Retrieve specific entity edges or episodes by UUID
+        5. Manage the knowledge graph with tools like delete_episode, delete_entity_edge, and clear_graph
+
+        The server connects to a database for persistent storage and uses language models for certain operations.
+        Each piece of information is organized by group_id, allowing you to maintain separate knowledge domains.
+
+        When adding information, provide descriptive names and detailed content to improve search quality.
+        When searching, use specific queries and consider filtering by group_id for more relevant results.
+
+        For optimal performance, ensure the database is properly configured and accessible, and valid
+        API keys are provided for any language model operations.
+      routed_policy: |
+        Key capabilities:
+        1. Add episodes (text, messages, or JSON) to the knowledge graph with the add_memory tool
+        2. Search for nodes (entities) in the graph using natural language queries with search_nodes
+        3. Find relevant facts (relationships between entities) with search_memory_facts
+        4. Retrieve specific entity edges or episodes by UUID
+        5. Manage the knowledge graph with tools like delete_episode, delete_entity_edge, and clear_graph
+
+        The server connects to a database for persistent storage and uses language models for certain operations.
+        This routed endpoint already applies its own write and read policy.
+
+        When adding information, provide descriptive names and detailed content to improve search quality.
+        When searching, use specific queries for more relevant results.
+
+        For optimal performance, ensure the database is properly configured and accessible, and valid
+        API keys are provided for any language model operations.
+      tool_descriptions:
+        add_memory: |
+          Add an episode to memory. This is the primary way to add information to the graph.
+
+          This function returns immediately and processes the episode addition in the background.
+          Episodes for the same group are processed sequentially to avoid race conditions.
+
+          Arguments:
+          - name: name of the episode
+          - episode_body: the content of the episode to persist to memory; when source='json', this must be a properly escaped JSON string
+          - group_id: optional write-group override; for normal shared-agent usage, prefer omitting this unless you intentionally need a separate hard partition
+          - source: one of text, json, or message
+          - source_description: optional source description
+          - uuid: optional episode UUID
+        search_nodes: |
+          Search for nodes in the graph memory.
+
+          Arguments:
+          - query: the natural-language search query
+          - group_ids: optional list of group IDs to filter results
+          - max_nodes: maximum number of nodes to return
+          - entity_types: optional list of entity type names to filter by
+        search_memory_facts: |
+          Search the graph memory for relevant facts.
+
+          Arguments:
+          - query: the natural-language search query
+          - group_ids: optional list of group IDs to filter results
+          - max_facts: maximum number of facts to return
+          - center_node_uuid: optional UUID of a node to center the search around
+        delete_entity_edge: |
+          Delete an entity edge from the graph memory.
+
+          Arguments:
+          - uuid: UUID of the entity edge to delete
+        delete_episode: |
+          Delete an episode from the graph memory.
+
+          Arguments:
+          - uuid: UUID of the episode to delete
+        get_entity_edge: |
+          Get an entity edge from the graph memory by UUID.
+
+          Arguments:
+          - uuid: UUID of the entity edge to retrieve
+        get_episodes: |
+          Get episodes from the graph memory.
+
+          Arguments:
+          - group_ids: optional list of group IDs to filter results
+          - max_episodes: maximum number of episodes to return
+        clear_graph: |
+          Clear all data from the graph for the specified groups.
+
+          Arguments:
+          - group_ids: optional list of group IDs to clear; in direct mode, if omitted, the default group is used
+        get_status: |
+          Get the status of the Lucid MCP server and database connection.
+
+routing:
+  enabled: true
+  default_profile: "work"
+  compatibility_path: "/mcp"
+  compatibility_profile: "work"
+  routes:
+    - path_prefix: "/work"
+      profile: "work"
+    - path_prefix: "/internal"
+      profile: "internal"

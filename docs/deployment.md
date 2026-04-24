@@ -14,10 +14,10 @@ The files here are sanitized examples. They are meant to be copied or merged int
 V1 uses three layers:
 
 - `lucid-falkordb`: private persistence on the internal runtime network only
-- `lucid-graphiti`: Graphiti MCP service connected to FalkorDB
+- `lucid-graphiti`: Lucid MCP service connected to FalkorDB
 - `${LUCID_PUBLIC_HOSTNAME}`: public hostname routed through Caddy with header-based API-key auth
 
-The public surface is Graphiti's MCP HTTP endpoint at `/mcp`. Raw FalkorDB is not exposed publicly.
+The public surface is Lucid's MCP HTTP endpoint family. Raw FalkorDB is not exposed publicly.
 
 ## Files to use
 
@@ -27,6 +27,7 @@ The public surface is Graphiti's MCP HTTP endpoint at `/mcp`. Raw FalkorDB is no
 - `deploy/env/lucid-graphiti.env.example`
 - `deploy/graphiti/config-docker-falkordb.yaml`
 - `docs/maintenance.md`
+- `config/config.yaml`
 
 ## Required configuration
 
@@ -45,16 +46,17 @@ Put these values in `deploy/env/lucid-falkordb.env` and `deploy/env/lucid-graphi
 
 - Public MCP auth uses `X-Lucid-Token` at the Caddy edge.
 - The public hostname and token must live in the compose project `.env`, because compose label interpolation does not read service `env_file` values.
-- Graphiti connects to FalkorDB with an internal service credential from `deploy/env/lucid-graphiti.env`.
+- Lucid connects to FalkorDB with an internal service credential from `deploy/env/lucid-graphiti.env`.
 - FalkorDB does not provide API-key auth in this design. Its v1 role is a private database behind Graphiti.
 
 ## Deployment notes
 
 - Keep `lucid-falkordb` on a private network only and do not publish `6379`.
 - The raw `falkordb/falkordb` image does not enforce `FALKORDB_PASSWORD` by itself. The compose example exports `REDIS_ARGS="--requirepass ..."` in the container entrypoint, which is required if you want password auth.
-- When Caddy proxies Graphiti's streamable MCP endpoint, it must send `Host localhost:8000` upstream. Without that header override, Graphiti returns `421 Invalid Host header`.
+- When Caddy proxies Lucid's streamable MCP endpoint, it must send `Host localhost:8000` upstream. Without that header override, FastMCP returns `421 Invalid Host header`.
+- Caddy no longer needs to choose a profile. It can forward authenticated traffic to the single Lucid runtime and let Lucid route `/mcp`, `/work/mcp`, and `/internal/mcp` internally.
 - Use `https://${LUCID_PUBLIC_HOSTNAME}/mcp` for MCP clients. The endpoint works without a trailing slash.
-- If you expose multiple Lucid profiles, keep the public compatibility route on `/mcp` and place profile-specific entry points on explicit subpaths such as `/work/mcp` and `/internal/mcp`.
+- Route exposure, profiles, subgroup instruction groups, and tool/instruction text are controlled in `config/config.yaml`. Routes not listed there are not exposed.
 
 ## Deployment steps
 
@@ -69,7 +71,7 @@ cp deploy/env/lucid-graphiti.env.example deploy/env/lucid-graphiti.env
 
 3. Copy or merge `deploy/docker-compose.lucid-memory.example.yml` into your compose repo.
 
-4. Keep the Graphiti service on both the `caddy` network and a private runtime network.
+4. Keep the Lucid service on both the `caddy` network and a private runtime network.
 
 5. Bring the services up from the compose project that contains the merged service definitions:
 
@@ -96,6 +98,11 @@ mcp2cli --mcp "https://${LUCID_PUBLIC_HOSTNAME}/mcp" \
   --list
 
 mcp2cli --mcp "https://${LUCID_PUBLIC_HOSTNAME}/mcp" \
+  --transport streamable \
+  --auth-header "X-Lucid-Token:env:LUCID_API_TOKEN" \
+  get-status
+
+mcp2cli --mcp "https://${LUCID_PUBLIC_HOSTNAME}/internal/mcp" \
   --transport streamable \
   --auth-header "X-Lucid-Token:env:LUCID_API_TOKEN" \
   get-status
