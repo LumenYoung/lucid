@@ -20,6 +20,7 @@ export LUCID_MCP_URL=https://memory.example.com/internal/mcp
 Notes:
 
 - The service-side Lucid profile should own the default write group.
+- The instruction text itself should be owned per subgroup through `instructions.groups`, not embedded per agent.
 - Clients should usually omit `group_id`.
 - For a machine that should default to personal/internal memory while still being allowed to read work, point it at the internal endpoint.
 - For shared or public agent traffic, point it at the work endpoint.
@@ -124,7 +125,7 @@ Keep endpoint and profile ownership simple:
 - `/internal/mcp` may additionally allow reads from `work`
 - `/mcp` may remain a compatibility alias to the work profile
 
-That keeps routing concerns at the entry-point level, while the actual read/write group policy remains inside the Lucid runtime.
+That keeps routing concerns at the entry-point level, while the actual read/write group policy remains inside the Lucid runtime and the instruction wording stays attached to the target subgroup.
 
 ## Recommended Policy Boundary
 
